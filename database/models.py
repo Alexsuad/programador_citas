@@ -131,6 +131,7 @@ class ExcepcionHorario(Base):
     __tablename__ = "excepciones_horarios"
 
     id_excepcion = Column(Integer, primary_key=True, index=True)
+    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False, default=1)
     id_recurso = Column(Integer, ForeignKey("recursos.id_recurso"), nullable=False)
     fecha = Column(Date, nullable=False)
     hora_inicio = Column(String(5), nullable=False)
@@ -143,6 +144,7 @@ class DiaNoDisponible(Base):
     __tablename__ = "dias_no_disponibles"
 
     id = Column(Integer, primary_key=True, index=True)
+    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False, default=1)
     fecha = Column(Date, nullable=False)
     motivo = Column(String(255))
     creado_por = Column(Integer)  # ID del admin/sistema que bloqueó el día

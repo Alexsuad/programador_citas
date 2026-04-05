@@ -17,9 +17,11 @@ def obtener_buffer_time(db: Session, id_negocio: int) -> int:
         return negocio.configuracion_json.get("buffer_time", 10)
     return 10
 
-def verificar_dia_festivo(db: Session, fecha: d_date) -> bool:
+def verificar_dia_festivo(db: Session, id_negocio: int, fecha: d_date) -> bool:
     """Retorna True si la fecha es un día bloqueado o festivo."""
-    festivo = db.query(DiaNoDisponible).filter(DiaNoDisponible.fecha == fecha).first()
+    festivo = db.query(DiaNoDisponible).filter(
+        and_(DiaNoDisponible.id_negocio == id_negocio, DiaNoDisponible.fecha == fecha)
+    ).first()
     return festivo is not None
 
 def obtener_horario_recurso(db: Session, id_recurso: int, dia_semana: int) -> Optional[Tuple[str, str]]:

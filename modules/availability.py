@@ -5,6 +5,7 @@
 # ──────────────────────────────────────────────────────────────────────
 
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 from database.models import Servicio, Cita
 from database import crud
@@ -29,11 +30,19 @@ def generar_slots_disponibles(
     """
     
     # 0. Preparación: Obtener duración del servicio y buffer time
-    servicio = db.query(Servicio).filter(Servicio.id_servicio == id_servicio).first()
+    servicio = db.get(Servicio, id_servicio)
     if not servicio:
         return []
         
-    buffer_time = crud.obtener_buffer_time(db, servicio.id_negocio)
+    id_negocio = servicio.id_negocio
+    buffer_time = crud.obtener_buffer_time(db, id_negocio)
+    
+    # 0.1 Obtener zona horaria del negocio (reutilizamos objeto ya cargado)
+    negocio = servicio.negocio
+    tz_name = "America/Bogota"
+    if negocio and negocio.configuracion_json:
+        tz_name = negocio.configuracion_json.get("timezone", "America/Bogota")
+    tz = ZoneInfo(tz_name)
     
     # 1. Prioridad Máxima: ¿Existe una excepción para este día?
     excepcion = crud.obtener_excepcion_recurso(db, id_recurso, fecha_busqueda)
@@ -43,7 +52,7 @@ def generar_slots_disponibles(
         h_entrada_str, h_salida_str = excepcion.hora_inicio, excepcion.hora_fin
     else:
         # 2. Si no hay excepción, verificamos si es día festivo/bloqueado
-        if crud.verificar_dia_festivo(db, fecha_busqueda):
+        if crud.verificar_dia_festivo(db, id_negocio, fecha_busqueda):
             return []
             
         # 3. Si no es festivo, usamos el horario normal
@@ -64,8 +73,8 @@ def generar_slots_disponibles(
     current_time = inicio_laboral
     intervalo_minutos = 30
     
-    ahora = datetime.now()
-    limite_tiempo_real = ahora + timedelta(minutes=30)
+    ahora_local = datetime.now(tz).replace(tzinfo=None) # Momento actual en el negocio
+    limite_tiempo_real = ahora_local + timedelta(minutes=30)
 
     while current_time + timedelta(minutes=servicio.duracion_minutos) <= fin_laboral:
         # 1. Calcular fin proyectado de esta posible cita
@@ -73,7 +82,7 @@ def generar_slots_disponibles(
         posible_fin = calcular_hora_fin(current_time, servicio.duracion_minutos, buffer_time)
         
         # 2. Filtro de Tiempo Real: Si es hoy, descartar slots pasados o muy proximos
-        if fecha_busqueda == ahora.date() and current_time < limite_tiempo_real:
+        if fecha_busqueda == ahora_local.date() and current_time < limite_tiempo_real:
             current_time += timedelta(minutes=intervalo_minutos)
             continue
 

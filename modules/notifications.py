@@ -8,8 +8,12 @@ import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from telegram import Bot
+from telegram import Bot
 from telegram.constants import ParseMode
 from typing import Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def enviar_recordatorio_telegram(bot: Bot, chat_id: int, mensaje: str) -> bool:
     """Envía un mensaje de texto vía Telegram de forma asíncrona."""
@@ -21,7 +25,7 @@ async def enviar_recordatorio_telegram(bot: Bot, chat_id: int, mensaje: str) -> 
         )
         return True
     except Exception as e:
-        print(f"❌ Error enviando Telegram a {chat_id}: {e}")
+        logger.error(f"❌ Error enviando Telegram a {chat_id}: {e}")
         return False
 
 def enviar_confirmacion_brevo(destinatario: str, datos_cita: Dict) -> bool:
@@ -31,7 +35,7 @@ def enviar_confirmacion_brevo(destinatario: str, datos_cita: Dict) -> bool:
     """
     api_key = os.getenv("SENDINBLUE_API_KEY")
     if not api_key or api_key == "your_api_key_here":
-        print("⚠️ API Key de Brevo no configurada. Saltando envío de correo.")
+        logger.warning("⚠️ API Key de Brevo no configurada. Saltando envío de correo.")
         return False
 
     configuration = sib_api_v3_sdk.Configuration()
@@ -62,5 +66,5 @@ def enviar_confirmacion_brevo(destinatario: str, datos_cita: Dict) -> bool:
         api_instance.send_transac_email(send_smtp_email)
         return True
     except ApiException as e:
-        print(f"❌ Error enviando Email via Brevo: {e}")
+        logger.error(f"❌ Error enviando Email via Brevo: {e}")
         return False

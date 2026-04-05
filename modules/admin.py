@@ -13,6 +13,10 @@ from database.models import Cita, Usuario, EntidadSujeto
 from utils.validators import UsuarioCreate
 from pydantic import ValidationError
 from typing import List
+from zoneinfo import ZoneInfo
+import logging
+
+logger = logging.getLogger(__name__)
 
 def exportar_citas_csv(db: Session, id_negocio: int) -> str:
     """
@@ -21,7 +25,7 @@ def exportar_citas_csv(db: Session, id_negocio: int) -> str:
     """
     citas = db.query(Cita).filter(Cita.id_negocio == id_negocio).all()
     
-    filename = f"export_citas_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    filename = f"export_citas_{datetime.now(ZoneInfo('America/Bogota')).strftime('%Y%m%d_%H%M')}.csv"
     filepath = os.path.join("tmp", filename)
     os.makedirs("tmp", exist_ok=True)
     
@@ -73,7 +77,7 @@ def importar_clientes_csv(db: Session, id_negocio: int, csv_content: str) -> dic
                     correo_electronico=user_in.correo_electronico,
                     telefono=user_in.telefono,
                     acepta_privacidad=True,
-                    fecha_aceptacion_terminos=datetime.now(),
+                    fecha_aceptacion_terminos=datetime.now(ZoneInfo("America/Bogota")),
                     version_terminos_aceptada="Import_CSV"
                 )
                 db.add(nuevo_usuario)
@@ -83,7 +87,7 @@ def importar_clientes_csv(db: Session, id_negocio: int, csv_content: str) -> dic
                 db.add(sujeto)
                 exitos += 1
         except (ValidationError, KeyError, ValueError) as e:
-            print(f"⚠️ Error importando fila {row}: {e}")
+            logger.error(f"⚠️ Error importando fila {row}: {e}")
             errores += 1
             
     db.commit()
