@@ -1,103 +1,131 @@
-# File: simulacion_vuelo.py
-# ──────────────────────────────────────────────────────────────────────
-# Propósito: Simulación de Ciclo de Vida Completo (MVP Flight Test).
-# Ejecución: uv run python simulacion_vuelo.py
-# ──────────────────────────────────────────────────────────────────────
-
-import os
-import csv
-from datetime import datetime, timedelta, date
-from sqlalchemy.orm import Session
-from database.connection import SessionLocal
-from database.models import Usuario, EntidadSujeto, Servicio, Recurso, Cita
-from modules.availability import generar_slots_disponibles
-from modules.scheduler import tarea_recordatorio_24h, tarea_recordatorio_2h
-from modules.admin import exportar_citas_csv
 import asyncio
+import logging
+from datetime import datetime, timedelta, date
+from zoneinfo import ZoneInfo
+
+from database.connection import SessionLocal
+from database.models import Usuario, EntidadSujeto, Servicio, Recurso, Cita, Negocio
+from modules.admin import exportar_citas_csv
+from modules.availability import generar_slots_disponibles
+from modules.scheduler import tarea_recordatorio_24h
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 # Mock del Bot de Telegram para pruebas Offline
 class MockBot:
     async def send_message(self, chat_id, text, parse_mode=None):
-        print(f"   [BOT MOCK] 📩 Enviado a {chat_id}: {text[:50]}...")
+        logger.info("[BOT MOCK] Enviado a %s: %s...", chat_id, text[:50])
         return True
 
 async def simular_ciclo_completo():
-    print("\n✈️  INICIANDO PRUEBA DE VUELO FINAL - MVP AGENDAMIENTO\n")
+    logger.info("✈️  INICIANDO PRUEBA DE VUELO FINAL - MVP AGENDAMIENTO")
     db = SessionLocal()
     bot = MockBot()
     
     try:
+        # --- PASO PREVIO: OBTENER NEGOCIO ---
+        negocio = db.query(Negocio).first()
+        if not negocio:
+            logger.error("❌ No hay negocios en la BD. Ejecuta el seeding primero.")
+            return
+        
+        id_negocio = negocio.id_negocio
+        tz_name = negocio.configuracion_json.get("timezone", "America/Bogota")
+        tz = ZoneInfo(tz_name)
+
         # --- PASO A: REGISTRO Y CONSENTIMIENTO ---
-        print("Paso A: Simulando Registro de Usuario (Habeas Data)...")
-        usuario = Usuario(
-            id_telegram=999999,
-            nombre_usuario="Andrés de Prueba",
-            acepta_privacidad=True,
-            fecha_aceptacion_terminos=datetime.now(),
-            version_terminos_aceptada="1.0-FlightTest"
-        )
-        db.add(usuario)
-        db.flush()
-        sujeto = EntidadSujeto(id_usuario_dueno=usuario.id_usuario, nombre_sujeto="Andrés de Prueba")
-        db.add(sujeto)
+        logger.info("Paso A: Simulando Registro de Usuario (Habeas Data)...")
+        usuario = db.query(Usuario).filter(Usuario.id_telegram == 999999).first()
+        if not usuario:
+            usuario = Usuario(
+                id_telegram=999999,
+                nombre_usuario="Andrés de Prueba",
+                acepta_privacidad=True,
+                fecha_aceptacion_terminos=datetime.now(tz),
+                version_terminos_aceptada="1.0-FlightTest"
+            )
+            db.add(usuario)
+            db.flush()
+        
+        sujeto = db.query(EntidadSujeto).filter(EntidadSujeto.id_usuario_dueno == usuario.id_usuario).first()
+        if not sujeto:
+            sujeto = EntidadSujeto(id_usuario_dueno=usuario.id_usuario, nombre_sujeto="Andrés de Prueba")
+            db.add(sujeto)
+        
         db.commit()
-        print(f"   ✅ Usuario '{usuario.nombre_usuario}' registrado con ID {usuario.id_usuario}.\n")
+        logger.info(f"   ✅ Usuario '{usuario.nombre_usuario}' listo con ID {usuario.id_usuario}.")
 
         # --- PASO B/C: SELECCIÓN DE CATALOGO ---
-        print("Paso B/C: Consultando Servicios y Recursos...")
-        servicio = db.query(Servicio).filter(Servicio.nombre_servicio.like("%Corte%")).first()
-        barbero = db.query(Recurso).filter(Recurso.nombre_recurso.like("%Andrés%")).first()
-        print(f"   ✅ Seleccionado: '{servicio.nombre_servicio}' con '{barbero.nombre_recurso}'.\n")
+        logger.info("Paso B/C: Consultando Servicios y Recursos...")
+        servicio = db.query(Servicio).filter(Servicio.id_negocio == id_negocio).first()
+        barbero = db.query(Recurso).filter(Recurso.id_negocio == id_negocio).first()
+        
+        if not servicio or not barbero:
+            logger.error("❌ No se encontró servicio o recurso para el negocio.")
+            return
+            
+        logger.info(f"   ✅ Seleccionado: '{servicio.nombre_servicio}' con '{barbero.nombre_recurso}'.")
 
         # --- PASO D: MOTOR DE DISPONIBILIDAD ---
-        print("Paso D: Invocando al 'Cerebro' para mañana...")
-        mañana = date.today() + timedelta(days=1)
-        slots = generar_slots_disponibles(db, barbero.id_recurso, mañana, servicio.id_servicio)
-        print(f"   ✅ Se encontraron {len(slots)} slots. El usuario elige las 11:00 AM.\n")
+        logger.info("Paso D: Invocando al 'Cerebro' para mañana...")
+        manana = date.today() + timedelta(days=1)
+        slots = generar_slots_disponibles(db, barbero.id_recurso, manana, servicio.id_servicio)
+        logger.info(f"   ✅ Se encontraron {len(slots)} slots.")
 
         # --- PASO E: CONFIRMACIÓN Y PERSISTENCIA ---
-        print("Paso E: Confirmando Cita y Guardando en DB...")
-        h_inicio = datetime.combine(mañana, datetime.strptime("11:00", "%H:%M").time())
+        logger.info("Paso E: Confirmando Cita y Guardando en DB...")
+        if not slots:
+            logger.warning("⚠️ No hay slots disponibles para la prueba.")
+            return
+
+        h_inicio = slots[0] # Tomamos el primer slot disponible
         h_fin = h_inicio + timedelta(minutes=servicio.duracion_minutos)
         
+        # Limpiar citas previas de prueba idénticas
+        db.query(Cita).filter(
+            Cita.id_recurso == barbero.id_recurso, 
+            Cita.fecha_hora_inicio == h_inicio
+        ).delete()
+        
         cita = Cita(
-            id_negocio=1, id_usuario=usuario.id_usuario, id_sujeto=sujeto.id_sujeto,
-            id_recurso=barbero.id_recurso, id_servicio=servicio.id_servicio,
-            fecha_hora_inicio=h_inicio, fecha_hora_fin=h_fin,
-            estado_cita="confirmada", precio_cobrado=servicio.precio
+            id_negocio=id_negocio, 
+            id_usuario=usuario.id_usuario, 
+            id_sujeto=sujeto.id_sujeto,
+            id_recurso=barbero.id_recurso, 
+            id_servicio=servicio.id_servicio,
+            fecha_hora_inicio=h_inicio, 
+            fecha_hora_fin=h_fin,
+            estado_cita="confirmada", 
+            precio_cobrado=servicio.precio
         )
         db.add(cita)
         db.commit()
-        print(f"   ✅ Cita ID {cita.id_cita} PERSISTIDA físicamente en SQLite.\n")
+        logger.info(f"   ✅ Cita ID {cita.id_cita} PERSISTIDA en la base de datos.")
 
         # --- PASO F: RECORDATORIOS AUTOMÁTICOS ---
-        print("Paso F: Forzando ejecución del Scheduler (Simulando paso del tiempo)...")
-        # Ajustamos la hora de la cita para que caiga EXACTAMENTE en la ventana de 24h (+- 30min)
-        cita.fecha_hora_inicio = datetime.now() + timedelta(hours=24)
+        logger.info("Paso F: Forzando ejecución del Scheduler...")
+        # Forzamos que la cita esté en la ventana de 24h para la prueba
+        cita.fecha_hora_inicio = datetime.now(tz).replace(tzinfo=None) + timedelta(hours=24)
         db.commit()
         
         await tarea_recordatorio_24h(bot)
         db.refresh(cita)
         
         if cita.recordatorio_24h_enviado:
-            print("   ✅ El Scheduler detectó la cita y marcó 'recordatorio_24h_enviado' como TRUE.\n")
+            logger.info("   ✅ El Scheduler detectó la cita y marcó recordatorio como enviado.")
         else:
-            print("   ❌ El Scheduler no detectó la cita correctamente.\n")
+            logger.warning("   ⚠️ El Scheduler no procesó la cita (verificar ventanas de tiempo).")
 
         # --- PASO G: EXPORTACIÓN ADMINISTRATIVA ---
-        print("Paso G: Generando Reporte CSV para el dueño...")
-        filepath = exportar_citas_csv(db, id_negocio=1)
-        print(f"   ✅ Reporte generado en: {filepath}")
+        logger.info("Paso G: Generando Reporte CSV para el dueño...")
+        filepath = exportar_citas_csv(db, id_negocio=id_negocio)
+        logger.info(f"   ✅ Reporte generado en: {filepath}")
         
-        print("\n📄 CONTENIDO DEL REPORTE (Primeras 2 líneas):")
-        with open(filepath, "r", encoding="utf-8-sig") as f:
-            lines = f.readlines()[:2]
-            for l in lines: print(f"   > {l.strip()}")
-
-        print("\n🌟 SISTEMA LISTO PARA PRODUCCIÓN 🌟\n")
+        logger.info("🌟 SIMULACIÓN COMPLETADA EXITOSAMENTE 🌟")
 
     except Exception as e:
-        print(f"\n❌ FALLO EN LA SIMULACIÓN: {e}")
+        logger.exception("Fallo en la simulación: %s", e)
         db.rollback()
     finally:
         db.close()

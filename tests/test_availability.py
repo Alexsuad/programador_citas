@@ -24,7 +24,7 @@ def test_festivo_puro_devuelve_cero_slots(db_session):
     db_session.query(ExcepcionHorario).filter(ExcepcionHorario.fecha == fecha).delete()
     
     # Crear Festivo
-    festivo = DiaNoDisponible(fecha=fecha, motivo="Cierre Total")
+    festivo = DiaNoDisponible(id_negocio=1, fecha=fecha, motivo="Cierre Total")
     db_session.add(festivo)
     db_session.commit()
     
@@ -40,8 +40,14 @@ def test_excepcion_permite_trabajar_en_festivo(db_session):
     db_session.query(ExcepcionHorario).filter(ExcepcionHorario.fecha == fecha).delete()
     
     # Crear Festivo Y Excepción (La excepción debe ganar)
-    festivo = DiaNoDisponible(fecha=fecha, motivo="Festivo")
-    excep = ExcepcionHorario(id_recurso=1, fecha=fecha, hora_inicio="09:00", hora_fin="11:00")
+    festivo = DiaNoDisponible(id_negocio=1, fecha=fecha, motivo="Festivo")
+    excep = ExcepcionHorario(
+        id_negocio=1,
+        id_recurso=1,
+        fecha=fecha,
+        hora_inicio="09:00",
+        hora_fin="11:00"
+    )
     db_session.add(festivo)
     db_session.add(excep)
     db_session.commit()

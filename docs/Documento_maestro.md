@@ -34,7 +34,7 @@ La Solución: Arquitectura Basada en Chatbots vs. Apps Tradicionales
 
 Análisis de Impacto, ROI y Productividad
 
-Arquitectura Técnica: Python, PostgreSQL y el Modelo Universal
+Arquitectura Técnica: SQLAlchemy 2.0, SQLite/Postgres y Modelo Universal
 
 Experiencia de Usuario (UX): El Arte del Agendamiento en 5 Clics
 
@@ -88,11 +88,17 @@ SEO Local Orgánico: Al automatizar el flujo de reseñas positivas, el negocio e
 
 5. Diseño Técnico y Lógica de Datos
 
-El sistema se construye sobre Python utilizando un enfoque orientado a objetos y una base de datos PostgreSQL, gestionada a través de un ORM para garantizar la integridad de los datos.
+El sistema se construye sobre Python utilizando un enfoque orientado a objetos y una base de datos relacional gestionada con SQLAlchemy. En el MVP actual se utiliza SQLite para desarrollo, manteniendo compatibilidad estructural para PostgreSQL en producción.
 
-Estructura de Datos Elástica:
+Flexibilidad de Infraestructura:
+Para el MVP y entorno de desarrollo se utiliza SQLite, manteniendo total compatibilidad con PostgreSQL para la migración a producción sin cambios en la lógica de negocio.
 
-id_negocio: El pilar del multi-tenancy. Cada consulta SQL filtra estrictamente por este ID para garantizar la privacidad entre sucursales o negocios.
+Gestión de Tiempo Precisa:
+El manejo de fechas y horarios es "Timezone Aware", utilizando exclusivamente `ZoneInfo("Europe/Madrid")` para evitar desajustes en las citas.
+
+Estructura de Datos y Multi-tenancy (Aislamiento Absoluto):
+
+id_negocio: El pilar del multi-tenancy. Todas las tablas (incluyendo `DiaNoDisponible` y `ExcepcionHorario`) cuentan con esta llave foránea. Cada consulta SQL filtra estrictamente por este ID para garantizar la privacidad y el aislamiento de datos entre negocios.
 
 metadatos_json: Aquí reside la flexibilidad del diseño. En lugar de crear columnas rígidas, usamos un campo JSON que se adapta según el negocio. Para una peluquería guardamos {"tipo_cabello": "graso"}, para una veterinaria guardamos {"raza": "Husky", "vacunas_al_dia": true}.
 
@@ -100,33 +106,42 @@ estado_cita: Una máquina de estados lógica que gestiona las transiciones (agen
 
 6. Seguridad, Privacidad y Calidad (QA)
 
-Habeas Data Activo: El sistema incluye un flujo de "Derecho al Olvido". Mediante el comando /mi_privacidad, el usuario puede solicitar un reporte de sus datos o la eliminación física de los mismos, cumpliendo con normativas internacionales.
+Privacidad y consentimiento: El sistema ya incorpora un flujo inicial de consentimiento para el tratamiento de datos del usuario dentro del proceso de reserva. La gestión ampliada de privacidad y derechos del titular sigue prevista como evolución posterior del sistema.
+
+Validación Administrativa: Las rutas y comandos administrativos están blindados mediante la validación obligatoria `es_admin()`, asegurando que solo personal autorizado gestione la configuración del negocio.
 
 Validación de Datos con Pydantic: Se implementan esquemas de validación estrictos. Ningún dato entra a la base de datos sin ser verificado (teléfonos con formato correcto, correos válidos, fechas coherentes).
 
-Resiliencia y Recuperación: El sistema de backups es redundante. Se realizan copias diarias cifradas que se envían a un almacenamiento seguro fuera del servidor principal. En caso de desastre, el sistema puede estar operativo en un nuevo entorno (como un servidor local o Railway) en menos de 15 minutos.
+Resiliencia y Recuperación: El diseño contempla una futura estrategia de respaldos y recuperación. En el MVP actual, esta capa todavía no se encuentra implementada como mecanismo automatizado de producción.
 
 7. Hoja de Ruta (Roadmap) Detallada
 
-Fase 1: El Nacimiento del MVP (Foco: Peluquerías)
+Fase 1: Saneamiento de Base y Arquitectura (COMPLETADA)
+- **Aislamiento Multi-tenant**: Todas las tablas críticas cuentan con `id_negocio`.
+- **Saneamiento de Modelos**: Corrección de defaults mutables en JSON (`default=dict`).
+- **SQLAlchemy 2.0**: Migración exitosa a sintaxis moderna con `future=True`.
+- **Cero Hardcoding**: Eliminación de IDs estáticos en bot y CRUD.
 
-Flujo de Reserva Express: Agendamiento completo en menos de 45 segundos utilizando teclados interactivos.
+Fase 2: El Nacimiento del MVP (Foco: Retención y Operatividad)
+- **UX de Alta Velocidad**: Flujo de agendamiento simplificado mediante botones interactivos para reducir la fricción del usuario.
+- **Gestión de Reagendamiento**: El sistema permite mover citas de manera autónoma, liberando el espacio anterior instantáneamente para otros clientes.
+- **Notificaciones Escalonadas**: Recordatorios inteligentes a las 24 horas y 2 horas antes de la cita para reducir el No-Show al mínimo.
 
-Gestión de Reagendamiento: El sistema permite mover citas de manera autónoma, liberando el espacio anterior instantáneamente para otros clientes.
+Fase 2: Inteligencia y Crecimiento Proactivo
 
-Notificaciones Escalonadas: Recordatorios inteligentes a las 24 horas y 2 horas antes de la cita para reducir el No-Show al mínimo.
+Módulo de Cierre de Citas: Finalización formal de citas para un control administrativo riguroso.
 
-Fase 2: Inteligencia, Onboarding y Crecimiento
+Filtro de Google Reviews: Implementación del sistema de estrellas que detecta la satisfacción y redirige estratégicamente a Google Maps para optimizar el SEO local.
 
-Módulo de Configuración Asistida: Un bot asistente que guía a nuevos dueños de negocio para configurar su propia sucursal sin intervención del programador.
+Cazador de Sillas Vacías: Algoritmo proactivo que identifica huecos en la agenda y sugiere acciones para maximizar la ocupación.
 
-Importador Universal de Datos: Herramienta para migrar bases de datos desde Excel o CSV, permitiendo que el dueño no pierda su historial de clientes.
+Cerebro de Periodicidad: Sistema inteligente de recordatorios preventivos (ciclos de 21/30 días) basado en el historial del cliente.
 
-Filtro de Google Reviews: Implementación del sistema de estrellas que detecta la satisfacción y redirige estratégicamente a Google Maps.
-
-Fase 3: Plataforma SaaS y Madurez Financiera
+Fase 3: Plataforma SaaS, Pagos y Monetización
 
 Pasarela de Pagos Integrada: Cobro de señas o abonos iniciales (Stripe / Mercado Pago) para asegurar citas de alto valor.
+
+Control de Ingresos Extra (Upselling): Módulo para ofrecer servicios o productos complementarios durante el proceso de reserva.
 
 Análisis de Tendencias y BI: Un panel que le informa al dueño: "Tus martes de 2 a 4 PM están siempre vacíos, ¿quieres lanzar una promoción automática para ese bloque?".
 

@@ -25,6 +25,20 @@ Para asegurar la coherencia, escalabilidad y calidad de este MVP, todos los desa
   - **Sujetos**: El cliente final que realiza la reserva.
 - **Escalabilidad**: Esta estructura permite que el bot sea adaptable a cualquier sector comercial mediante configuración, sin rediseñar el núcleo.
 
+## 🔒 5. Blindaje Multi-tenant y Aislamiento de Datos
+- **Filtro Obligatorio**: Queda prohibido realizar consultas a tablas de negocio (Servicios, Citas, Recursos, etc.) sin filtrar explícitamente por `id_negocio`.
+- **Integridad**: Ninguna operación de escritura o modificación debe permitirse sin validar la pertenencia del registro al negocio en sesión.
+
+## 🔌 6. Configuración y Cero Hardcoding
+- **Variables de Entorno**: Queda estrictamente prohibido dejar IDs, tokens, o URLs de base de datos "hardcodeados" en el código.
+- **Externalización**: Todas las configuraciones variables deben residir en archivos `.env` o en el campo `configuracion_json` de la tabla `negocios`.
+
+## 🔐 7. Reglas de Persistencia, Configuración y Trazabilidad
+- **Sin hardcoding operativo**: Queda prohibido fijar manualmente valores como `id_negocio=1`, teléfonos, remitentes o configuraciones de entorno dentro del código productivo.
+- **Aislamiento por negocio**: Toda consulta o mutación que afecte disponibilidad, festivos, excepciones, citas o exportaciones debe respetar explícitamente el `id_negocio` cuando aplique.
+- **Logging obligatorio**: En módulos productivos se debe usar `logging.getLogger(__name__)`. El uso de `print()` queda reservado solo para scripts manuales o pruebas CLI aisladas.
+- **Lecturas directas modernas**: Para lecturas simples por clave primaria se debe preferir `db.get(Modelo, id)` en lugar de patrones antiguos equivalentes.
+
 ---
 
 > [!IMPORTANT]

@@ -29,13 +29,22 @@ def generar_slots_disponibles(
     5. Filtro de Tiempo Real (Margen de 30m).
     """
     
-    # 0. Preparación: Obtener duración del servicio y buffer time
-    servicio = db.get(Servicio, id_servicio)
+    # 0. Preparación: Obtener servicio, recurso y negocio asociado
+    servicio = db.query(Servicio).filter(Servicio.id_servicio == id_servicio).first()
     if not servicio:
         return []
-        
-    id_negocio = servicio.id_negocio
+
+    recurso = crud.obtener_recurso_por_id(db, id_recurso)
+    if not recurso:
+        return []
+
+    id_negocio = recurso.id_negocio
     buffer_time = crud.obtener_buffer_time(db, id_negocio)
+
+    # Validación defensiva:
+    # servicio y recurso deben pertenecer al mismo negocio.
+    if servicio.id_negocio != id_negocio:
+        return []
     
     # 0.1 Obtener zona horaria del negocio (reutilizamos objeto ya cargado)
     negocio = servicio.negocio
@@ -45,7 +54,7 @@ def generar_slots_disponibles(
     tz = ZoneInfo(tz_name)
     
     # 1. Prioridad Máxima: ¿Existe una excepción para este día?
-    excepcion = crud.obtener_excepcion_recurso(db, id_recurso, fecha_busqueda)
+    excepcion = crud.obtener_excepcion_recurso(db, id_negocio, id_recurso, fecha_busqueda)
     
     if excepcion:
         # Si hay excepción, usamos ese horario y nos saltamos el check de festivo
@@ -66,11 +75,15 @@ def generar_slots_disponibles(
     fin_laboral = datetime.combine(fecha_busqueda, datetime.strptime(h_salida_str, "%H:%M").time())
     
     # c. Obtener citas existentes para este dia
-    citas_existentes = crud.obtener_citas_dia(db, id_recurso, fecha_busqueda)
+    citas_existentes = crud.obtener_citas_dia(db, id_negocio, id_recurso, fecha_busqueda)
     
-    # d. Generar slots (Empezamos cada 30 minutos)
+    # d. Generar slots
     slots_disponibles = []
     current_time = inicio_laboral
+    
+    # MVP actual:
+    # los slots se generan cada 30 minutos para mantener una UX simple.
+    # Más adelante este valor podrá hacerse configurable por negocio o servicio.
     intervalo_minutos = 30
     
     ahora_local = datetime.now(tz).replace(tzinfo=None) # Momento actual en el negocio

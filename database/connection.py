@@ -1,13 +1,12 @@
 # File: database/connection.py
 # ──────────────────────────────────────────────────────────────────────
-# Propósito: Gestión de la conexión a PostgreSQL y ciclo de vida de sesiones.
+# Propósito: Gestión de la conexión a base de datos y ciclo de vida de sesiones.
 # Rol: Corazón del sistema de persistencia.
 # ──────────────────────────────────────────────────────────────────────
 
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -19,8 +18,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ El valor de DATABASE_URL no está configurado en el archivo .env")
 
-# TODO: Entorno SQLite temporal. Las migraciones de Alembic actuales deberán ser 
-# reiniciadas (borradas y recreadas) al migrar a PostgreSQL en producción.
+# Soporte para SQLite en desarrollo y PostgreSQL en producción.
+# SQLite requiere check_same_thread=False para permitir uso correcto en este MVP.
 connect_args = {}
 if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
@@ -37,10 +36,10 @@ if not DATABASE_URL.startswith("sqlite"):
     engine_args["pool_size"] = 5
     engine_args["max_overflow"] = 10
 
-engine = create_engine(DATABASE_URL, **engine_args)
+engine = create_engine(DATABASE_URL, future=True, **engine_args)
 
 # Constructor de sesiones
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
 # Clase base para la creación de modelos
 Base = declarative_base()

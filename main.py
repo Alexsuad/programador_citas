@@ -39,7 +39,7 @@ async def iniciar_telegram():
     """Inicializa y arranca el bot de Telegram de forma asíncrona."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token or token == "your_token_here":
-        print("⚠️ TELEGRAM_BOT_TOKEN no configurado. El bot no iniciará.")
+        logger.warning("⚠️ TELEGRAM_BOT_TOKEN no configurado. El bot no iniciará.")
         return
 
     # Configurar la aplicación de Telegram
@@ -51,7 +51,7 @@ async def iniciar_telegram():
     # Iniciar motor de notificaciones (APScheduler)
     iniciar_scheduler(application.bot)
     
-    print("🚀 Bot de Telegram iniciado...")
+    logger.info("🚀 Bot de Telegram iniciado...")
     await application.initialize()
     await application.start()
     await application.updater.start_polling()

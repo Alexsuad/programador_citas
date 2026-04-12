@@ -18,12 +18,14 @@ class Negocio(Base):
     id_negocio = Column(Integer, primary_key=True, index=True)
     nombre_comercial = Column(String(100), nullable=False)
     tipo_industria = Column(String(50))  # Ej: Barbería, Veterinaria, Clínica
-    configuracion_json = Column(JSON, default={})  # Configuración específica del negocio
+    configuracion_json = Column(JSON, default=dict)  # Configuración específica del negocio
 
     # Relaciones
     recursos = relationship("Recurso", back_populates="negocio", cascade="all, delete-orphan")
     servicios = relationship("Servicio", back_populates="negocio", cascade="all, delete-orphan")
     citas = relationship("Cita", back_populates="negocio")
+    dias_no_disponibles = relationship("DiaNoDisponible", back_populates="negocio", cascade="all, delete-orphan")
+    excepciones_horarios = relationship("ExcepcionHorario", back_populates="negocio", cascade="all, delete-orphan")
 
 class Recurso(Base):
     __tablename__ = "recursos"
@@ -31,6 +33,7 @@ class Recurso(Base):
     id_recurso = Column(Integer, primary_key=True, index=True)
     id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False)
     nombre_recurso = Column(String(100), nullable=False)  # Ej: Nombre del barbero o habitación
+    perfil_recurso = Column(String(20), nullable=False, default="unisex")
     tipo_recurso = Column(String(50))  # Ej: Humano, Maquinaria, Espacio
     capacidad = Column(Integer, default=1)  # Cuántas citas simultáneas puede atender
 
@@ -39,6 +42,7 @@ class Recurso(Base):
     horarios = relationship("HorarioRecurso", back_populates="recurso", cascade="all, delete-orphan")
     excepciones = relationship("ExcepcionHorario", back_populates="recurso", cascade="all, delete-orphan")
     citas = relationship("Cita", back_populates="recurso")
+    servicios_habilitados = relationship("RecursoServicio", cascade="all, delete-orphan")
 
 class Servicio(Base):
     __tablename__ = "servicios"
@@ -46,6 +50,7 @@ class Servicio(Base):
     id_servicio = Column(Integer, primary_key=True, index=True)
     id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False)
     nombre_servicio = Column(String(100), nullable=False)
+    perfil_servicio = Column(String(20), nullable=False, default="unisex")
     duracion_minutos = Column(Integer, nullable=False)
     precio = Column(Float, default=0.0)
     activo = Column(Boolean, default=True)
@@ -53,6 +58,14 @@ class Servicio(Base):
     # Relaciones
     negocio = relationship("Negocio", back_populates="servicios")
     citas = relationship("Cita", back_populates="servicio")
+    recursos_habilitados = relationship("RecursoServicio", cascade="all, delete-orphan")
+
+class RecursoServicio(Base):
+    __tablename__ = "recurso_servicio"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_recurso = Column(Integer, ForeignKey("recursos.id_recurso"), nullable=False)
+    id_servicio = Column(Integer, ForeignKey("servicios.id_servicio"), nullable=False)
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -79,7 +92,7 @@ class EntidadSujeto(Base):
     id_sujeto = Column(Integer, primary_key=True, index=True)
     id_usuario_dueno = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
     nombre_sujeto = Column(String(100), nullable=False)  # Ej: Paco (el perro) o Placas (el auto)
-    metadatos_json = Column(JSON, default={})  # Flexibilidad absoluta por industria
+    metadatos_json = Column(JSON, default=dict)  # Flexibilidad absoluta por industria
 
     # Relaciones
     usuario_dueno = relationship("Usuario", back_populates="sujetos")
@@ -100,13 +113,22 @@ class Cita(Base):
     fecha_hora_fin = Column(DateTime, nullable=False)
     
     # Estado y Auditoría
-    estado_cita = Column(String(20), default="pendiente")  # pendiente, confirmada, cancelada, completada
+    estado_cita = Column(String(20), default="pendiente")  # pendiente, confirmada, cancelada, completada, no_asistio
     precio_cobrado = Column(Float)  # Por si el precio cambió después del agendamiento
     
     # Notificaciones
     recordatorio_24h_enviado = Column(Boolean, default=False)
     recordatorio_2h_enviado = Column(Boolean, default=False)
     fecha_recordatorio_solicitado = Column(DateTime, nullable=True)
+
+    # Post-servicio
+    calificacion_servicio = Column(Integer, nullable=True)
+    fecha_calificacion = Column(DateTime, nullable=True)
+
+    # Retención / periodicidad
+    dias_recordatorio_reagendamiento = Column(Integer, nullable=True)
+    fecha_recordatorio_reagendamiento = Column(DateTime, nullable=True)
+    recordatorio_reagendamiento_enviado = Column(Boolean, default=False)
 
     # Relaciones
     negocio = relationship("Negocio", back_populates="citas")
@@ -131,20 +153,24 @@ class ExcepcionHorario(Base):
     __tablename__ = "excepciones_horarios"
 
     id_excepcion = Column(Integer, primary_key=True, index=True)
-    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False, default=1)
+    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False)
     id_recurso = Column(Integer, ForeignKey("recursos.id_recurso"), nullable=False)
     fecha = Column(Date, nullable=False)
     hora_inicio = Column(String(5), nullable=False)
     hora_fin = Column(String(5), nullable=False)
 
     # Relaciones
+    negocio = relationship("Negocio", back_populates="excepciones_horarios")
     recurso = relationship("Recurso", back_populates="excepciones")
 
 class DiaNoDisponible(Base):
     __tablename__ = "dias_no_disponibles"
 
     id = Column(Integer, primary_key=True, index=True)
-    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False, default=1)
+    id_negocio = Column(Integer, ForeignKey("negocios.id_negocio"), nullable=False)
     fecha = Column(Date, nullable=False)
     motivo = Column(String(255))
     creado_por = Column(Integer)  # ID del admin/sistema que bloqueó el día
+
+    # Relaciones
+    negocio = relationship("Negocio", back_populates="dias_no_disponibles")

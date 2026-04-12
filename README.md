@@ -40,9 +40,12 @@ uv run pytest tests/test_availability.py
 
 ## 📊 Módulos de Administración
 
-- **Exportación**: Genera reportes en CSV compatible con Excel (`utf-8-sig`).
-- **Importación**: Permite cargar clientes masivamente desde archivos CSV.
-- **Recordatorios**: Motor automático de alertas vía Telegram (24h/2h).
+- **Exportación**: Genera reportes en CSV detallados (`exportar_citas_csv` y `exportar_citas_detalle_csv`) compatibles con Excel (`utf-8-sig`).
+- **Importación**: Permite cargar clientes masivamente desde archivos CSV validando la integridad con Pydantic.
+- **Configuración Dinámica**: Edición de URLs de soporte y encuestas directamente en el JSON de configuración para desacoplar del `.env`.
+- **Habilidades y Recursos**: Configuración asimétrica de servicios por especialista.
+- **Estadísticas**: Panel de control con KPIs automáticos de conversión, no-show y calificación promedio.
+- **Recordatorios Automáticos**: Motor de alertas vía Telegram (24h/2h y recordatorio futuro de periodicidad post-cita).
 
 ## 🛠️ Tecnologías Utilizadas
 
