@@ -33,9 +33,9 @@ Este proyecto utiliza `uv` como gestor estándar de dependencias y entornos.
 
 ## 🧪 Pruebas de Calidad
 
-Para verificar que el motor de disponibilidad y solapamiento funciona correctamente:
+Para mantener la estabilidad del código, el proyecto cuenta con pruebas automatizadas tanto para el motor de disponibilidad y solapamiento, como para las funciones críticas administrativas. Para ejecutarlas:
 ```bash
-uv run pytest tests/test_availability.py
+uv run pytest tests/
 ```
 
 ## 📊 Módulos de Administración
