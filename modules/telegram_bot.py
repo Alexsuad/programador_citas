@@ -130,8 +130,8 @@ ESTADO_RECORDATORIO_REAGENDAMIENTO = 17
 ESTADO_HABILIDADES_RECURSO = 18
 ESTADO_HABILIDADES_ACCION = 19
 ESTADO_EDITAR_BIENVENIDA = 20
-ESTADO_ADMIN_BLOQUEO = 18
-ESTADO_ADMIN_SERVICIOS = 19
+ESTADO_ADMIN_BLOQUEO = 21
+ESTADO_ADMIN_SERVICIOS = 22
 
 # Aviso de Privacidad Express
 AVISO_PRIVACIDAD = (
@@ -199,7 +199,7 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
                     id_telegram=tg_user.id,
                     nombre_usuario=tg_user.full_name,
                     acepta_privacidad=True,
-                    fecha_aceptacion_terminos=datetime.now(ZoneInfo("America/Bogota")),
+                    fecha_aceptacion_terminos=datetime.now(ZoneInfo("Europe/Madrid")),
                     version_terminos_aceptada="1.0-MVP"
                 )
                 db.add(usuario)
@@ -483,9 +483,14 @@ async def mostrar_recursos_por_hora(update: Update, context: ContextTypes.DEFAUL
 
     db = SessionLocal()
     try:
+        id_negocio = context.user_data.get("id_negocio")
         id_servicio = context.user_data.get("id_servicio")
         fecha_busqueda = context.user_data.get("fecha")
         perfil_servicio = context.user_data.get("perfil_servicio", "unisex")
+
+        if not id_negocio or not id_servicio:
+            await query.edit_message_text("⚠️ Faltan datos en el flujo. Regresando al menú...")
+            return ESTADO_MENU_PRINCIPAL
 
         recursos = crud.obtener_recursos_habilitados_para_servicio(
             db=db,
@@ -543,9 +548,15 @@ async def seleccionar_primera_cita_disponible(update: Update, context: ContextTy
 
     db = SessionLocal()
     try:
+        id_negocio = context.user_data.get("id_negocio")
+        id_servicio = context.user_data.get("id_servicio")
         fecha_busqueda = context.user_data.get("fecha")
         jornada = context.user_data.get("jornada")
         perfil_servicio = context.user_data.get("perfil_servicio", "unisex")
+
+        if not id_negocio or not id_servicio:
+            await query.edit_message_text("⚠️ No se pudo recuperar el contexto del negocio.")
+            return ESTADO_MENU_PRINCIPAL
 
         recursos = crud.obtener_recursos_habilitados_para_servicio(
             db=db,
@@ -676,7 +687,7 @@ async def mostrar_fechas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(botones)
     )
-    return ESTADO_SELECCION_HORA
+    return ESTADO_SELECCION_FECHA
 
 async def cierres_pendientes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
@@ -713,7 +724,7 @@ async def cierres_pendientes(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 )
             ])
 
-        await query.message.reply_text(
+        await update.message.reply_text(
             "🧾 *Citas pendientes de cierre*\n\n"
             "Selecciona una cita para marcar si asistió o no asistió.",
             parse_mode="Markdown",

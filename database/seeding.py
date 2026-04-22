@@ -29,7 +29,7 @@ def poblar_datos_prueba():
                     "buffer_time": 15,
                     "moneda": "EUR",
                     "mensaje_bienvenida": "¡Bienvenido a Barbería Classic Pro!",
-                    "zona_horaria": "Europe/Madrid",
+                    "timezone": "Europe/Madrid",
                     "google_review_url": "https://g.page/r/example/review",
                     "support_contact_url": "https://t.me/soporte_demo"
                 }

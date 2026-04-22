@@ -149,13 +149,12 @@ def importar_clientes_csv(db: Session, id_negocio: int, csv_content: str) -> dic
                 # Crear su entidad sujeto por defecto
                 sujeto = EntidadSujeto(id_usuario_dueno=nuevo_usuario.id_usuario, nombre_sujeto=user_in.nombre_usuario)
                 db.add(sujeto)
+                db.commit()
                 exitos += 1
         except Exception as e:
             logger.exception("Fallo en la importación de fila %s: %s", row, e)
             db.rollback()
             errores += 1
-            
-    db.commit()
     logger.info(
         "Importación CSV finalizada. id_negocio=%s, exitos=%s, errores=%s",
         id_negocio,

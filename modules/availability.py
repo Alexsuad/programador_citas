@@ -48,9 +48,9 @@ def generar_slots_disponibles(
     
     # 0.1 Obtener zona horaria del negocio (reutilizamos objeto ya cargado)
     negocio = servicio.negocio
-    tz_name = "America/Bogota"
+    tz_name = "Europe/Madrid"
     if negocio and negocio.configuracion_json:
-        tz_name = negocio.configuracion_json.get("timezone", "America/Bogota")
+        tz_name = negocio.configuracion_json.get("timezone", "Europe/Madrid")
     tz = ZoneInfo(tz_name)
     
     # 1. Prioridad Máxima: ¿Existe una excepción para este día?

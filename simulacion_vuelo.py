@@ -31,7 +31,7 @@ async def simular_ciclo_completo():
             return
         
         id_negocio = negocio.id_negocio
-        tz_name = negocio.configuracion_json.get("timezone", "America/Bogota")
+        tz_name = negocio.configuracion_json.get("timezone", "Europe/Madrid")
         tz = ZoneInfo(tz_name)
 
         # --- PASO A: REGISTRO Y CONSENTIMIENTO ---
